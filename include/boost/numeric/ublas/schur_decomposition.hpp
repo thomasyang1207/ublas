@@ -37,10 +37,11 @@ namespace boost {
 
                 typedef typename M::size_type size_type;
                 typedef typename M::value_type value_type;
-
                 size_type n = h.size1();
                 size_type p = n;
-                while (p > size_type(2)) {
+                int iter = 0;
+                const int max_iter = 100;
+                while (p > size_type(2) && iter < max_iter) {
                     size_type q = p - size_type(1);
 
                     value_type s = h(q - size_type(1), q - size_type(1)) + h(p - size_type(1), p - size_type(1));
@@ -124,13 +125,18 @@ namespace boost {
                         h(p - size_type(1), q - size_type(1)) = value_type(0);
                         p = p - size_type(1);
                         q = p - size_type(1);
+                        iter = 0;
                     }
                     else if ((std::abs)(h(p - size_type(2), q - size_type(2))) < (std::numeric_limits<value_type>::epsilon())*((std::abs)(h(q - size_type(2), q - size_type(2))) + (std::abs)(h(q - size_type(1), q - size_type(1))))) {
                         h(p - size_type(2), q - size_type(2)) = value_type(0);
                         p = p - size_type(2);
                         q = p - size_type(1);
+                        iter = 0;
                     }
-
+                    else {
+                        iter++;
+                        std::cout << iter << std::endl;
+                    }
                 }
             }
 
@@ -148,7 +154,9 @@ namespace boost {
 
                 size_type n = h.size1();
                 size_type p = n;
-                while (p > size_type(2)) {
+                int iter = 0;
+                const int max_iter = 100;
+                while (p > size_type(2) && iter < max_iter) {
                     size_type q = p - size_type(1);
 
                     value_type s = h(q - size_type(1), q - size_type(1)) + h(p - size_type(1), p - size_type(1));
@@ -267,11 +275,16 @@ namespace boost {
                         h(p - size_type(1), q - size_type(1)) = value_type(0);
                         p = p - size_type(1);
                         q = p - size_type(1);
+                        iter = 0;
                     }
                     else if ((std::abs)(h(p - size_type(2), q - size_type(2))) < (std::numeric_limits<value_type>::epsilon())*((std::abs)(h(q - size_type(2), q - size_type(2))) + (std::abs)(h(q - size_type(1), q - size_type(1))))) {
                         h(p - size_type(2), q - size_type(2)) = value_type(0);
                         p = p - size_type(2);
                         q = p - size_type(1);
+                        iter = 0;
+                    }
+                    else {
+                        iter++;
                     }
                 }
             }
