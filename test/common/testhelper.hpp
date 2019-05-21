@@ -58,6 +58,33 @@ std::pair<unsigned, unsigned> getResults() {
   return std::make_pair(_success_counter, _fail_counter);
 }
 
+template <typename T>
+struct to_value_type {
+    using value_type = T;
+};
+
+template <typename T>
+struct to_value_type<std::complex<T>> {
+    using value_type = T;
+};
+
+template < class M >
+bool norm_is_small(
+  const boost::numeric::ublas::matrix_expression<M> & m,
+  double in_scale = 1.0,
+  double in_tolerance = 1.0e-7) {
+
+  typedef typename boost::numeric::ublas::matrix_expression<M>::expression_type expression_type;
+  typedef typename to_value_type< typename expression_type::value_type >::value_type value_type;
+
+  value_type scale = in_scale;
+  value_type tolerance = in_tolerance;
+  if (scale < tolerance)
+    return norm_inf(m) / tolerance < tolerance;
+  else
+    return norm_inf(m) / scale < tolerance;
+}
+
 template < class M1, class M2 >
 bool compare( const boost::numeric::ublas::matrix_expression<M1> & m1,
               const boost::numeric::ublas::matrix_expression<M2> & m2 ) {
@@ -78,7 +105,7 @@ bool compare( const boost::numeric::ublas::matrix_expression<M1> & m1,
 
 template < class M1, class M2 >
 bool compare_on_tolerance(const boost::numeric::ublas::matrix_expression<M1> & m1,
-  const boost::numeric::ublas::matrix_expression<M2> & m2, double tolerance = 1.0e-5) {
+  const boost::numeric::ublas::matrix_expression<M2> & m2, double tolerance = 1.0e-7) {
   if ((m1().size1() != m2().size1()) ||
     (m1().size2() != m2().size2())) {
     return false;
@@ -89,9 +116,7 @@ bool compare_on_tolerance(const boost::numeric::ublas::matrix_expression<M1> & m
   size_t size2 = m1().size2();
   for (size_t i = 0; i < size1; ++i) {
     for (size_t j = 0; j < size2; ++j) {
-      const value_t absdiff = std::abs(m1()(i, j) - m2()(i, j));
-      const value_t scale = std::max(std::abs(m1()(i, j) + m2()(i, j)), value_t(1));
-      if (absdiff/scale < tol) {
+      if (std::abs(m1()(i, j) - m2()(i, j)) < tol) {
         continue;
       }
       else {
