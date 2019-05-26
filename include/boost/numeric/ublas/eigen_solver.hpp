@@ -13,6 +13,7 @@
 
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
+#include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/hessenberg.hpp>
 #include <boost/numeric/ublas/householder.hpp>
 #include <boost/numeric/ublas/schur_decomposition.hpp>
@@ -32,6 +33,10 @@ enum eig_solver_params {EIGVAL,EIGVEC};
 
 template <class M>
 class eigen_solver {
+public:
+    typedef typename M::size_type size_type;
+    typedef typename M::value_type value_type;
+    typedef vector<value_type> vector_type;
 private:
     M matrix;
     M hessenberg_form;
@@ -40,8 +45,8 @@ private:
     bool has_imag_part;
     bool has_eigenvalues;
     bool has_eigenvectors;
-    M eigenvalues_real;
-    M eigenvalues_imag;
+    vector_type eigenvalues_real;
+    vector_type eigenvalues_imag;
     M eigenvectors;
     M eigenvectors_real;
     M eigenvectors_imag;
@@ -101,24 +106,25 @@ public:
         typedef typename M::value_type value_type;
 
         size_type n = real_schur_form.size1();
-        size_type i = size_type(0);
+        size_type i = 0;
 
-        eigenvalues_real = zero_matrix<value_type>(n,n);
-        eigenvalues_imag = zero_matrix<value_type>(n, n);
-
+        eigenvalues_real = zero_vector<value_type>(n);
+        eigenvalues_imag = zero_vector<value_type>(n);
+        value_type scale = norm_1(real_schur_form);
+        value_type tolerance = 1.0e-7 * scale;
         while (i < n) {
-            if ((i == n - size_type(1)) || (real_schur_form(i + 1, i) == value_type(0)) || ((std::abs)(real_schur_form(i + 1, i)) <= 1.0e-5)) {
-                eigenvalues_real(i, i) = real_schur_form(i, i);
-                i += size_type(1);
+            if ((i == n - 1) || ((std::abs)(real_schur_form(i + 1, i)) < tolerance)) {
+                eigenvalues_real(i) = real_schur_form(i, i);
+                i += 1;
             }
             else {
-                value_type p = value_type(0.5) * (real_schur_form(i, i) - real_schur_form(i + size_type(1), i + size_type(1)));
-                value_type z = (std::sqrt)((std::abs)(p * p + real_schur_form(i + size_type(1), i) * real_schur_form(i, i + size_type(1))));
-                eigenvalues_real(i, i) = real_schur_form(i + size_type(1), i + size_type(1)) + p;
-                eigenvalues_imag(i, i) = z;
-                eigenvalues_real(i + size_type(1), i + size_type(1)) = real_schur_form(i + size_type(1), i + size_type(1)) + p;
-                eigenvalues_imag(i + size_type(1), i + size_type(1)) = -z;
-                i += size_type(2);
+                value_type p = value_type(0.5) * (real_schur_form(i, i) - real_schur_form(i + 1, i + 1));
+                value_type z = (std::sqrt)((std::abs)(p * p + real_schur_form(i + 1, i) * real_schur_form(i, i + 1)));
+                eigenvalues_real(i) = real_schur_form(i + 1, i + 1) + p;
+                eigenvalues_imag(i) = z;
+                eigenvalues_real(i + 1) = real_schur_form(i + 1, i + 1) + p;
+                eigenvalues_imag(i + 1) = -z;
+                i += 2;
                 has_imag_part = true;
             }
         }
@@ -128,13 +134,13 @@ public:
 
     /// \brief Method to get the real portion of the Eigenvalues. Output type same as input type.
     BOOST_UBLAS_INLINE
-        M& get_eigenvalues_real() {
+        vector_type& get_eigenvalues_real() {
         return eigenvalues_real;
     }
 
     /// \brief Method to get the imaginary portion of the Eigenvalues. Output type same as input type.
     BOOST_UBLAS_INLINE
-        M& get_eigenvalues_imag() {
+        vector_type& get_eigenvalues_imag() {
         return eigenvalues_imag;
     }
 
@@ -160,11 +166,11 @@ public:
         M T(real_schur_form);
         eigenvectors = M(transform_accumulations);
 
-        size_type n = eigenvalues_real.size1();
+        size_type n = eigenvalues_real.size();
 
         value_type norm = value_type(0);
-        for (size_type j = size_type(0); j < n; j++) {
-            size_type idx = (j==size_type(0))?size_type(0):(j - size_type(1));
+        for (size_type j = 0; j < n; j++) {
+            size_type idx = (j==0)?0:(j - 1);
             vector<value_type> v = project(row(T,j), range(idx, n));
             norm += norm_1(v);
         }
@@ -172,10 +178,10 @@ public:
         if (norm == value_type(0))
             return;
 
-        for (size_type k = n; k-- != size_type(0);) {
+        for (size_type k = n; k-- != 0;) {
 
-            value_type p = eigenvalues_real(k, k);
-            value_type q = eigenvalues_imag(k, k);
+            value_type p = eigenvalues_real(k);
+            value_type q = eigenvalues_imag(k);
 
             if (q == value_type(0)) {
 
@@ -185,18 +191,18 @@ public:
 
                 T(k, k) = value_type(1);
 
-                for (size_type i = k; i-- != size_type(0);) {
+                for (size_type i = k; i-- != 0;) {
                     value_type w = T(i, i) - p;
-                    vector<value_type> r_left = project(row(T, i), range(l, k + size_type(1)));
-                    vector<value_type> r_right = project(column(T, k), range(l, k + size_type(1)));
+                    vector<value_type> r_left = project(row(T, i), range(l, k + 1));
+                    vector<value_type> r_right = project(column(T, k), range(l, k + 1));
                     value_type r = inner_prod(r_left, r_right);
-                    if (eigenvalues_imag(i, i) < value_type(0)) {
+                    if (eigenvalues_imag(i) < value_type(0)) {
                         lastw = w;
                         lastr = r;
                     }
                     else {
                         l = i;
-                        if (eigenvalues_imag(i, i) == value_type(0)) {
+                        if (eigenvalues_imag(i) == value_type(0)) {
                             if (w != value_type(0)) {
                                 T(i, k) = -r / w;
                             }
@@ -205,16 +211,16 @@ public:
                             }
                         }
                         else {
-                            value_type x = T(i, i + size_type(1));
-                            value_type y = T(i + size_type(1), i);
-                            value_type denom = (eigenvalues_real(i, i) - p)*(eigenvalues_real(i, i) - p) + (eigenvalues_imag(i, i))*(eigenvalues_imag(i, i));
+                            value_type x = T(i, i + 1);
+                            value_type y = T(i + 1, i);
+                            value_type denom = (eigenvalues_real(i) - p)*(eigenvalues_real(i) - p) + (eigenvalues_imag(i))*(eigenvalues_imag(i));
                             value_type t = (x * lastr - lastw * r) / denom;
                             T(i, k) = t;
                             if ((std::abs)(x) > (std::abs)(lastw)) {
-                                T(i + size_type(1), k) = (-r - w * t) / x;
+                                T(i + 1, k) = (-r - w * t) / x;
                             }
                             else {
-                                T(i + size_type(1), k) = (-lastr - y * t) / lastw;
+                                T(i + 1, k) = (-lastr - y * t) / lastw;
                             }
                         }
 
@@ -233,50 +239,50 @@ public:
                 lastra = lastsa = lastw = value_type(0);
                 size_type l = k - 1;
 
-                if ((std::abs)(T(k, k - size_type(1))) > (std::abs)(T(k - size_type(1), k))) {
-                    T(k - size_type(1), k - size_type(1)) = q / T(k, k - size_type(1));
-                    T(k - size_type(1), k) = -(T(k, k) - p) / T(k, k - size_type(1));
+                if ((std::abs)(T(k, k - 1)) > (std::abs)(T(k - 1, k))) {
+                    T(k - 1, k - 1) = q / T(k, k - 1);
+                    T(k - 1, k) = -(T(k, k) - p) / T(k, k - 1);
                 }
                 else {
-                    std::complex<value_type> x(value_type(0), -T(k - size_type(1), k));
-                    std::complex<value_type> y(T(k - size_type(1), k - size_type(1)) - p, q);
+                    std::complex<value_type> x(value_type(0), -T(k - 1, k));
+                    std::complex<value_type> y(T(k - 1, k - 1) - p, q);
                     std::complex<value_type> cc = x / y;
-                    T(k - size_type(1), k - size_type(1)) = cc.real();
-                    T(k - size_type(1), k) = cc.imag();
+                    T(k - 1, k - 1) = cc.real();
+                    T(k - 1, k) = cc.imag();
                 }
-                T(k ,k - size_type(1)) = value_type(0);
+                T(k ,k - 1) = value_type(0);
                 T(k, k) = value_type(1);
 
-                for (size_type i = k - size_type(1); i-- != size_type(0);) {
+                for (size_type i = k - 1; i-- != 0;) {
 
-                    vector<value_type> ra_left = project(row(T, i), range(l, k + size_type(1)));
-                    vector<value_type> ra_right = project(column(T, k - size_type(1)), range(l, k + size_type(1)));
+                    vector<value_type> ra_left = project(row(T, i), range(l, k + 1));
+                    vector<value_type> ra_right = project(column(T, k - 1), range(l, k + 1));
                     value_type ra = inner_prod(ra_left, ra_right);
 
-                    vector<value_type> sa_right = project(column(T, k), range(l, k + size_type(1)));
+                    vector<value_type> sa_right = project(column(T, k), range(l, k + 1));
                     value_type sa = inner_prod(ra_left, sa_right);
 
                     value_type w = T(i, i) - p;
 
-                    if (eigenvalues_imag(i, i) < value_type(0)) {
+                    if (eigenvalues_imag(i) < value_type(0)) {
                         lastw = w;
                         lastra = ra;
                         lastsa = sa;
                     }
                     else {
                         l = i;
-                        if (eigenvalues_imag(i, i) == value_type(0)) {
+                        if (eigenvalues_imag(i) == value_type(0)) {
                             std::complex<value_type> x(-ra, -sa);
                             std::complex<value_type> y(w, q);
                             std::complex<value_type> cc = x / y;
-                            T(i, k - size_type(1)) = cc.real();
+                            T(i, k - 1) = cc.real();
                             T(i, k) = cc.imag();
                         }
                         else {
-                            value_type x = T(i, i + size_type(1));
-                            value_type y = T(i + size_type(1), i);
-                            value_type vr = (eigenvalues_real(i, i) - p) * (eigenvalues_real(i, i) - p) + eigenvalues_imag(i, i) * eigenvalues_imag(i, i) - q * q;
-                            value_type vi = (eigenvalues_real(i, i) - p) * value_type(2) * q;
+                            value_type x = T(i, i + 1);
+                            value_type y = T(i + 1, i);
+                            value_type vr = (eigenvalues_real(i) - p) * (eigenvalues_real(i) - p) + eigenvalues_imag(i) * eigenvalues_imag(i) - q * q;
+                            value_type vi = (eigenvalues_real(i) - p) * value_type(2) * q;
 
                             if (vr == value_type(0) && vi == value_type(0)) {
                                 vr = (std::numeric_limits<value_type>::epsilon()) * norm * ((std::abs)(w)+(std::abs)(q)+(std::abs)(x)+(std::abs)(y)+(std::abs)(lastw));
@@ -285,30 +291,30 @@ public:
                             std::complex<value_type> x1(x*lastra - lastw*ra + q*sa, x*lastsa - lastw*sa - q*ra);
                             std::complex<value_type> y1(vr, vi);
                             std::complex<value_type> cc = x1 / y1;
-                            T(i, k - size_type(1)) = cc.real();
+                            T(i, k - 1) = cc.real();
                             T(i, k) = cc.imag();
 
                             if ((std::abs)(x) > ((std::abs)(lastw)+(std::abs)(q))) {
-                                T(i + size_type(1), k - size_type(1)) = (-ra - w * T(i, k - size_type(1)) + q * T(i, k)) / x;
-                                T(i + size_type(1), k) = (-sa - w * T(i, k) - q * T(i, k - size_type(1))) / x;
+                                T(i + 1, k - 1) = (-ra - w * T(i, k - 1) + q * T(i, k)) / x;
+                                T(i + 1, k) = (-sa - w * T(i, k) - q * T(i, k - 1)) / x;
                             }
                             else {
-                                x1 = std::complex<value_type>(-lastra - y*T(i, k - size_type(1)), -lastsa - y*T(i, k));
+                                x1 = std::complex<value_type>(-lastra - y*T(i, k - 1), -lastsa - y*T(i, k));
                                 y1 = std::complex<value_type>(lastw, q);
                                 cc = x1 / y1;
-                                T(i + size_type(1), k - size_type(1)) = cc.real();
-                                T(i + size_type(1), k) = cc.imag();
+                                T(i + 1, k - 1) = cc.real();
+                                T(i + 1, k) = cc.imag();
                             }
 
                         }
 
                     }
 
-                    value_type t = (std::max)((std::abs)(T(i, k - size_type(1))), (std::abs)(T(i, k)));
+                    value_type t = (std::max)((std::abs)(T(i, k - 1)), (std::abs)(T(i, k)));
                     if ((std::numeric_limits<value_type>::epsilon() * t)*t > value_type(1)) {
-                        for (size_type j = i; j < k + i - size_type(1); j++){
+                        for (size_type j = i; j < k; j++){
                             T(j, n - i) /= t;
-                            T(j, n - i + size_type(1)) /= t;
+                            T(j, n - i + 1) /= t;
                         }
                     }
 
@@ -317,10 +323,10 @@ public:
             }
         }
 
-        for (size_type j = n; j--!=size_type(0);)
+        for (size_type j = n; j--!=0;)
         {
-            M matrix_left = project(eigenvectors, range(0, n),range(0, j + size_type(1)));
-            vector<value_type> vector_right = project(column(T,j), range(0, j + size_type(1)));
+            M matrix_left = project(eigenvectors, range(0, n),range(0, j + 1));
+            vector<value_type> vector_right = project(column(T,j), range(0, j + 1));
             vector<value_type> v  = prod(matrix_left,vector_right);
             column(eigenvectors,j) = v;
         }
@@ -331,7 +337,7 @@ public:
         eigenvectors_imag = zero_matrix<value_type>(n, n);
 
         for (size_type j = 0; j < n; j++) {
-            if (j + size_type(1) == n || (eigenvalues_imag(j, j) == value_type(0))){
+            if (j + 1 == n || (eigenvalues_imag(j) == value_type(0))){
                 vector<value_type> vj = column(eigenvectors, j);
                 value_type norm_vj = norm_2(vj);
                 vector<value_type> normalized_vj = vj / norm_vj;
