@@ -17,52 +17,58 @@
 <p>The class <code>eigen_solver</code> is used to compute the eigenvalues and eigenvectors of real matrices. </p>
 <h4>Example</h4>
 <pre>
-#include &lt;boost/numeric/ublas/storage.hpp&gt;
 
 #include &lt;boost/numeric/ublas/matrix.hpp&gt;
 #include &lt;boost/numeric/ublas/io.hpp&gt;
 #include &lt;boost/numeric/ublas/eigen_solver.hpp&gt;
 #include &lt;complex&gt;
+#include &lt;sstream&gt;
 
 int main () {
     using namespace boost::numeric::ublas;
-    matrix<double> m(3, 3);
-	m <<= 2.0, 3.0, 5.0,
-		2.0, -3.0, 7.0,
-		4.0, 1.0, 1.0;
-	eigen_solver<matrix<double> > es(m,EIGVEC);
-	
-	matrix<double> evals_r = es.get_real_eigenvalues();
-	matrix<double> evals_c = es.get_complex_eigenvalues();
-	matrix<double> evecs_r = es.get_real_eigenvectors();
-	matrix<double> evecs_c = es.get_complex_eigenvectors();
-	
-	std::cout << "Eigenvalues (Real Part)\n";
-	std::cout << evals_r << std::endl;
-	
-	std::cout << "Eigenvalues (Imag. Part)\n";
-	std::cout << evals_c << std::endl;
-	
-	std::cout << "Eigenvectors (Real Part)\n";
-	std::cout << evecs_r << std::endl;
-	
-	std::cout << "Eigenvectors (Imag. Part)\n";
-	std::cout << evecs_c << std::endl;
-	
-	std::cout << "Verification\n";
-	matrix<std::complex<double> > V(3,3);
-	matrix<std::complex<double> > D(3,3);
-	matrix<std::complex<double> > A(3,3);
-	matrix<std::complex<double> > Lambda;
-	for (int i = 0; i < 3; i++){
-		for (int j = 0; j < 3; j++){
-			V(i, j) = std::complex<double>(evecs_r(i, j), evecs_c(i, j));
-			D(i, j) = std::complex<double>(evals_r(i, j), evals_c(i, j));
-			A(i, j) = std::complex<double>(m(i, j), 0.0);
-		}
-	}
-	Lambda = prod(A, V) - prod(V, D);
-	std::cout << Lambda << std::endl;
+    using std::string;
+    matrix&lt;double&gt; m(3, 3);
+    static const string m_string =
+        "[3,3](( 2.0,  3.0,  5.0),"
+              "( 2.0, -3.0,  7.0),"
+              "( 4.0,  1.0,  1.0))";
+    std::istringstream is(m_string);
+    is &gt;&gt; m;
+    eigen_solver&lt;matrix&lt;double&gt; &gt; es(m,EIGVEC);
+
+    vector&lt;double&gt; evals_r = es.get_eigenvalues_real();
+    vector&lt;double&gt; evals_i = es.get_eigenvalues_imag();
+    matrix&lt;double&gt; evecs_r = es.get_eigenvectors_real();
+    matrix&lt;double&gt; evecs_i = es.get_eigenvectors_imag();
+
+    std::cout &lt;&lt; "Eigenvalues (Real Part)" &lt;&lt; std::endl;
+    std::cout &lt;&lt; evals_r &lt;&lt; std::endl;
+
+    std::cout &lt;&lt; "Eigenvalues (Imag Part)" &lt;&lt; std::endl;
+    std::cout &lt;&lt; evals_i &lt;&lt; std::endl;
+
+    std::cout &lt;&lt; "Eigenvectors (Real Part)" &lt;&lt; std::endl;
+    std::cout &lt;&lt; evecs_r &lt;&lt; std::endl;
+
+    std::cout &lt;&lt; "Eigenvectors (Imag Part)" &lt;&lt; std::endl;
+    std::cout &lt;&lt; evecs_i &lt;&lt; std::endl;
+
+    std::cout &lt;&lt; "Verification\n";
+    matrix&lt;std::complex&lt;double&gt; &gt; V(3,3);
+    matrix&lt;std::complex&lt;double&gt; &gt; D(3,3);
+    matrix&lt;std::complex&lt;double&gt; &gt; A(3,3);
+    matrix&lt;std::complex&lt;double&gt; &gt; Lambda;
+    for (int i = 0; i &lt; 3; i++){
+        D(i, i) = std::complex&lt;double&gt;(evals_r(i), evals_i(i));
+        for (int j = 0; j &lt; 3; j++){
+            V(i, j) = std::complex&lt;double&gt;(evecs_r(i, j), evecs_i(i, j));
+            if (i != j)
+                D(i, j) = std::complex&lt;double&gt;(0.0, 0.0);
+            A(i, j) = std::complex&lt;double&gt;(m(i, j), 0.0);
+        }
+    }
+    Lambda = prod(A, V) - prod(V, D);
+    std::cout &lt;&lt; Lambda &lt;&lt; std::endl;
 }
 
 </pre>
@@ -90,32 +96,32 @@ int main () {
 <td>Mostly internal method that starts the computation of eigenvalues. To be used in case the user wanted EigenValues option in the constructor and then later on wants the Eigenvectors as well, then we should call the <code>compute</code> with the <code>EIGVEC</code> option.</td>
 </tr>
 <tr>
-<td><code>M& get_real_eigenvalues()</code></td>
-<td>Returns the real portion of the Eigenvalues.</td>
+<td><code>vector< typename M::value_type >& get_eigenvalues_real()</code></td>
+<td>Returns the real portion of the eigenvalues.</td>
 </tr>
 <tr>
-<td><code>M& get_complex_eigenvalues()</code></td>
-<td>Returns the complex portion of the Eigenvalues.</td>
+<td><code>vector< typename M::value_type >& get_eigenvalues_imag()</code></td>
+<td>Returns the imaginary portion of the eigenvalues.</td>
 </tr>
 <tr>
-<td><code>M& get_real_eigenvectors()</code></td>
-<td>Returns the real portion of the Eigenvectors(if computed).</td>
+<td><code>M& get_eigenvectors_real()</code></td>
+<td>Returns the real portion of the eigenvectors(if computed).</td>
 </tr>
 <tr>
-<td><code>M& get_complex_eigenvectors()</code></td>
-<td>Returns the complex portion of the Eigenvectors(if computed).</td>
+<td><code>M& get_eigenvectors_imag()</code></td>
+<td>Returns the imaginary portion of the eigenvectors(if computed).</td>
 </tr>
 <tr>
 <td><code>bool has_complex_eigenvalues()</code></td>
-<td>Returns if there is any complex portion to the eigen values. </td>
+<td>Returns if there is any imaginary portion to the eigenvalues. </td>
 </tr>
 <tr>
 <td><code>M& get_real_schur_form()</code></td>
-<td>Returns the real schur decomposition of the hessenberg form of the original matrix.</td>
+<td>Returns the real Schur decomposition of the Hessenberg form of the original matrix.</td>
 </tr>
 <tr>
 <td><code>M& get_hessenberg_form()</code></td>
-<td>Returns the hessenberg decomposition of the original matrix.</td>
+<td>Returns the Hessenberg decomposition of the original matrix.</td>
 </tr>
 </tbody>
 </table>
