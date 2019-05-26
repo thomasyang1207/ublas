@@ -64,25 +64,22 @@ struct to_value_type {
 };
 
 template <typename T>
-struct to_value_type<std::complex<T>> {
+struct to_value_type<std::complex<T> > {
     using value_type = T;
 };
 
 template < class M >
 bool norm_is_small(
-  const boost::numeric::ublas::matrix_expression<M> & m,
-  double in_scale = 1.0,
-  double in_tolerance = 1.0e-7) {
+  const M& m,
+  typename to_value_type< typename M::value_type >::value_type scale = 1.0,
+  typename to_value_type< typename M::value_type >::value_type tolerance =
+    std::numeric_limits<typename to_value_type< typename M::value_type >::value_type>::epsilon()) {
 
-  typedef typename boost::numeric::ublas::matrix_expression<M>::expression_type expression_type;
-  typedef typename to_value_type< typename expression_type::value_type >::value_type value_type;
+  typedef typename to_value_type< typename M::value_type >::value_type value_type;
 
-  value_type scale = in_scale;
-  value_type tolerance = in_tolerance;
-  if (scale < tolerance)
-    return norm_inf(m) / tolerance < tolerance;
-  else
-    return norm_inf(m) / scale < tolerance;
+  value_type tolerance2 = tolerance * tolerance;
+  scale = std::max(scale, tolerance2);
+  return norm_inf(m) / scale < tolerance;
 }
 
 template < class M1, class M2 >
